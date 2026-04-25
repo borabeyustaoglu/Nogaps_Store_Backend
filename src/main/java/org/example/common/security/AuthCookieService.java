@@ -15,9 +15,18 @@ import java.util.Optional;
 public class AuthCookieService {
 
     private final String cookieName;
+    private final boolean secure;
+    private final String sameSite;
+    private final String cookieDomain;
 
-    public AuthCookieService(@Value("${app.auth.cookie-name}") String cookieName) {
+    public AuthCookieService(@Value("${app.auth.cookie-name}") String cookieName,
+                             @Value("${app.auth.cookie.secure:true}") boolean secure,
+                             @Value("${app.auth.cookie.same-site:None}") String sameSite,
+                             @Value("${app.auth.cookie.domain:}") String cookieDomain) {
         this.cookieName = cookieName;
+        this.secure = secure;
+        this.sameSite = sameSite;
+        this.cookieDomain = cookieDomain;
     }
 
     public String resolveToken(HttpServletRequest request) {
@@ -36,24 +45,30 @@ public class AuthCookieService {
     }
 
     public void attachAuthCookie(HttpServletResponse response, String token, long maxAgeSeconds) {
-        ResponseCookie cookie = ResponseCookie.from(cookieName, token)
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(cookieName, token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(secure)
                 .path("/")
                 .maxAge(maxAgeSeconds)
-                .sameSite("Lax")
-                .build();
+                .sameSite(sameSite);
+        if (cookieDomain != null && !cookieDomain.isBlank()) {
+            builder.domain(cookieDomain);
+        }
+        ResponseCookie cookie = builder.build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     public void clearAuthCookie(HttpServletResponse response) {
-        ResponseCookie cookie = ResponseCookie.from(cookieName, "")
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(cookieName, "")
                 .httpOnly(true)
-                .secure(false)
+                .secure(secure)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
-                .build();
+                .sameSite(sameSite);
+        if (cookieDomain != null && !cookieDomain.isBlank()) {
+            builder.domain(cookieDomain);
+        }
+        ResponseCookie cookie = builder.build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }
