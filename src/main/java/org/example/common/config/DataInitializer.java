@@ -8,6 +8,7 @@ import org.example.data.repository.AppRoleRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ public class DataInitializer {
     private final AppRoleRepository roleRepository;
 
     @Bean
+    @Order(1)
     public CommandLineRunner seedRolePermissions() {
         return args -> {
             Map<String, String> definitions = new HashMap<>();

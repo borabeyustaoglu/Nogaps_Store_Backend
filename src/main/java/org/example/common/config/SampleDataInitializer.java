@@ -230,12 +230,13 @@ public class SampleDataInitializer implements CommandLineRunner {
     }
 
     private void seedUsers() {
-        AppRole userRole = appRoleRepository.findByName("USER")
-                .orElseThrow(() -> new IllegalStateException("USER role not found"));
-        AppRole adminRole = appRoleRepository.findByName("ADMINISTRATOR")
-                .orElseThrow(() -> new IllegalStateException("ADMINISTRATOR role not found"));
-        AppRole managerRole = appRoleRepository.findByName("MANAGER")
-                .orElseThrow(() -> new IllegalStateException("MANAGER role not found"));
+        AppRole userRole = appRoleRepository.findByName("USER").orElse(null);
+        AppRole adminRole = appRoleRepository.findByName("ADMINISTRATOR").orElse(null);
+        AppRole managerRole = appRoleRepository.findByName("MANAGER").orElse(null);
+
+        if (userRole == null || adminRole == null || managerRole == null) {
+            return;
+        }
 
         upsertDemoUser(
                 "demo.user",
