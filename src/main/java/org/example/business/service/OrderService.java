@@ -43,6 +43,7 @@ public class OrderService {
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final CheckoutPricingService checkoutPricingService;
     private final CouponService couponService;
+    private final IyzicoPaymentService iyzicoPaymentService;
     private final AuditLogService auditLogService;
 
     @Transactional
@@ -134,18 +135,46 @@ public class OrderService {
             }
         }
 
-        // Payment success -> decrease product stocks.
+        PaymentAttempt attempt = new PaymentAttempt();
+        attempt.setOrder(order);
+        attempt.setProvider(provider);
+        IyzicoPaymentService.IyzicoPaymentResult iyzicoResult = null;
+
+        if (provider == PaymentProvider.IYZICO) {
+            iyzicoResult = iyzicoPaymentService.charge(order, request);
+            if (!iyzicoResult.success()) {
+                attempt.setStatus(PaymentStatus.FAILED);
+                attempt.setTransactionId(iyzicoResult.transactionId());
+                attempt.setErrorCode(iyzicoResult.errorCode());
+                attempt.setErrorMessage(iyzicoResult.errorMessage());
+                paymentAttemptRepository.save(attempt);
+
+                order.setStatus(OrderStatus.FAILED);
+                orderRepository.save(order);
+
+                auditLogService.log("ORDER_PAY_FAILED", "ORDER", order.getId(),
+                        "Iyzico payment failed: " + firstNonBlank(iyzicoResult.errorMessage(), "Unknown reason"));
+
+                return new PaymentResultResponse(
+                        order.getId(),
+                        order.getOrderNumber(),
+                        order.getStatus().name(),
+                        null,
+                        "Odeme basarisiz: " + firstNonBlank(iyzicoResult.errorMessage(), "Lutfen tekrar deneyin.")
+                );
+            }
+        }
+
         for (OrderItem item : order.getItems()) {
             int currentStock = item.getProduct().getStockQuantity() == null ? 0 : item.getProduct().getStockQuantity();
             int requested = item.getQuantity() == null ? 0 : item.getQuantity();
             item.getProduct().setStockQuantity(currentStock - requested);
         }
 
-        PaymentAttempt attempt = new PaymentAttempt();
-        attempt.setOrder(order);
-        attempt.setProvider(provider);
         attempt.setStatus(PaymentStatus.SUCCESS);
-        attempt.setTransactionId(generateTransactionId(provider));
+        attempt.setTransactionId(provider == PaymentProvider.IYZICO
+                ? iyzicoResult.transactionId()
+                : generateTransactionId(provider));
         attempt.setErrorCode(null);
         attempt.setErrorMessage(null);
         paymentAttemptRepository.save(attempt);
@@ -301,6 +330,15 @@ public class OrderService {
     private String generateTransactionId(PaymentProvider provider) {
         String token = UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
         return provider.name() + "-" + token;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 }
 
