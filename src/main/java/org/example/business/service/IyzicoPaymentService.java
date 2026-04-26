@@ -19,6 +19,7 @@ import org.example.common.entity.ShippingAddress;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -100,8 +101,8 @@ public class IyzicoPaymentService {
         CreatePaymentRequest request = new CreatePaymentRequest();
         request.setLocale(Locale.TR.getValue());
         request.setConversationId(order.getOrderNumber());
-        request.setPrice(toMoney(order.getGrandTotal()));
-        request.setPaidPrice(toMoney(order.getGrandTotal()));
+        request.setPrice(toAmount(order.getGrandTotal()));
+        request.setPaidPrice(toAmount(order.getGrandTotal()));
         request.setInstallment(order.getInstallmentCount() == null ? 1 : order.getInstallmentCount());
         request.setBasketId(order.getOrderNumber());
         request.setPaymentChannel(PaymentChannel.WEB.name());
@@ -159,7 +160,7 @@ public class IyzicoPaymentService {
                     ? item.getProduct().getCategory().getName()
                     : "General");
             basketItem.setItemType(BasketItemType.PHYSICAL.name());
-            basketItem.setPrice(toMoney(item.getLineTotal()));
+            basketItem.setPrice(toAmount(item.getLineTotal()));
             basketItems.add(basketItem);
         }
         request.setBasketItems(basketItems);
@@ -167,9 +168,9 @@ public class IyzicoPaymentService {
         return request;
     }
 
-    private String toMoney(java.math.BigDecimal amount) {
-        java.math.BigDecimal safe = amount == null ? java.math.BigDecimal.ZERO : amount;
-        return safe.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    private BigDecimal toAmount(BigDecimal amount) {
+        BigDecimal safe = amount == null ? BigDecimal.ZERO : amount;
+        return safe.setScale(2, RoundingMode.HALF_UP);
     }
 
     private String extractFirstName(String fullName) {
